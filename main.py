@@ -1,52 +1,60 @@
 # main.py
+import asyncio
 import threading
 import os
-import requests
 from flask import Flask
 from scanner import scanner_loop
+import aiohttp
 
 app = Flask(__name__)
 
 COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets"
-BINANCE_SYMBOL_URL = "https://api.binance.com/api/v3/exchangeInfo"
+BINANCE_EXCHANGE_URL = "https://api.binance.com/api/v3/exchangeInfo"
 
 
-def get_top_100_by_market_cap():
+async def fetch_json(session, url, params=None):
+    async with session.get(url, params=params, timeout=20) as resp:
+        return await resp.json()
+
+
+async def get_top_100_by_market_cap_async():
     """
+    Async:
     1. Fetch top 100 coins by market cap from CoinGecko
-    2. Map them to Binance USDT symbols
-    3. Filter leveraged tokens
+    2. Fetch Binance exchange symbols
+    3. Map CoinGecko coins → Binance USDT pairs
     """
 
-    # 1️⃣ Get top 100 coins by market cap
-    cg_params = {
-        "vs_currency": "usd",
-        "order": "market_cap_desc",
-        "per_page": 100,
-        "page": 1
-    }
+    async with aiohttp.ClientSession() as session:
+        # Run both requests in parallel
+        coingecko_task = fetch_json(
+            session,
+            COINGECKO_URL,
+            {
+                "vs_currency": "usd",
+                "order": "market_cap_desc",
+                "per_page": 100,
+                "page": 1
+            }
+        )
 
-    coins = requests.get(
-        COINGECKO_URL,
-        params=cg_params,
-        timeout=15
-    ).json()
+        binance_task = fetch_json(session, BINANCE_EXCHANGE_URL)
 
-    # Extract symbols (lowercase from CoinGecko)
-    top_symbols = {c["symbol"].upper() for c in coins}
+        coingecko_data, binance_data = await asyncio.gather(
+            coingecko_task,
+            binance_task
+        )
 
-    # 2️⃣ Fetch Binance exchange symbols
-    exchange_info = requests.get(
-        BINANCE_SYMBOL_URL,
-        timeout=15
-    ).json()
+    # Extract CoinGecko symbols (uppercase)
+    top_symbols = {coin["symbol"].upper() for coin in coingecko_data}
 
     banned_suffixes = ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")
 
-    binance_symbols = []
+    resolved_symbols = []
 
-    for s in exchange_info["symbols"]:
+    for s in binance_data["symbols"]:
         symbol = s["symbol"]
+        base_asset = s["baseAsset"]
 
         if not symbol.endswith("USDT"):
             continue
@@ -54,22 +62,20 @@ def get_top_100_by_market_cap():
         if symbol.endswith(banned_suffixes):
             continue
 
-        base_asset = s["baseAsset"]
-
-        # 3️⃣ Match CoinGecko symbol with Binance base asset
         if base_asset in top_symbols:
-            binance_symbols.append(symbol)
+            resolved_symbols.append(symbol)
 
-    return binance_symbols
+    return resolved_symbols
 
 
 def start_scanner():
-    symbols = get_top_100_by_market_cap()
+    # Run async resolver inside thread
+    symbols = asyncio.run(get_top_100_by_market_cap_async())
 
-    print(f"✅ Scanner started for {len(symbols)} symbols (Top 100 Market Cap)")
+    print(f"✅ Scanner started for {len(symbols)} symbols (Top 100 Market Cap • Async)")
 
     if not symbols:
-        print("❌ No symbols resolved from CoinGecko → Binance mapping")
+        print("❌ No symbols resolved — check CoinGecko / Binance mapping")
         return
 
     scanner_loop(symbols)
@@ -81,6 +87,7 @@ def health():
 
 
 if __name__ == "__main__":
+    # Start scanner in background
     threading.Thread(
         target=start_scanner,
         daemon=True
