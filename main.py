@@ -6,12 +6,7 @@ from scanner import scanner_loop
 
 app = Flask(__name__)
 
-# ======================================================
-# SUPPORTED BASE ASSETS (BINANCE USDT PAIRS ONLY)
-# ======================================================
-
 SUPPORTED_ASSETS = {
-    # Majors & Alts
     "BTC", "ETH", "XRP", "BNB", "SOL", "USDC", "ADA", "DOGE", "MATIC",
     "TRX", "AVAX", "LINK", "LTC", "XLM", "TON", "APT", "ATOM", "VET",
     "ICP", "HBAR", "NEAR", "FTM", "ARB", "OP", "SUI", "ALGO", "EOS",
@@ -26,87 +21,29 @@ SUPPORTED_ASSETS = {
     "EWT", "STORJ", "SNT"
 }
 
-# ======================================================
-# ASSET ALIASES / VARIANTS
-# ======================================================
+BLOCKED_BASES = {"USDT", "DAI", "BUSD", "TUSD", "USDP", "FDUSD"}
 
-ALIASES = {
-    "STETH": "ETH",        # Lido stETH → ETH
-    "APTOSWAP": "APT",     # Aptos variants
-    "EOSNEW": "EOS",       # EOS Network (New)
-    "ARBNOVA": "ARB",      # Arbitrum Nova
-    "HELIUM": "HNT"        # Helium variants
-}
-
-# ======================================================
-# BASE ASSETS TO NEVER SCAN
-# ======================================================
-
-BLOCKED_BASES = {
-    "USDT", "DAI", "BUSD", "TUSD", "USDP", "FDUSD"
-}
-
-# Leveraged token suffixes
-BANNED_SUFFIXES = ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")
-
-
-def normalize_asset(asset: str):
-    asset = asset.upper()
-    return ALIASES.get(asset, asset)
-
-
-def get_supported_symbols():
+def get_symbols():
     symbols = []
-
     for asset in SUPPORTED_ASSETS:
-        base = normalize_asset(asset)
-
-        # 🚫 Never scan stablecoin bases
-        if base in BLOCKED_BASES:
+        if asset in BLOCKED_BASES:
             continue
-
-        symbol = f"{base}USDT"
-
-        # 🚫 Defensive check
-        if symbol.endswith(BANNED_SUFFIXES):
-            continue
-
-        symbols.append(symbol)
-
+        symbols.append(f"{asset}USDT")
     return sorted(set(symbols))
 
 
 def start_scanner():
-    symbols = get_supported_symbols()
-
-    print(f"✅ Scanner started for {len(symbols)} supported symbols")
-    print("📌 Symbols:", ", ".join(symbols))
-
-    if not symbols:
-        print("❌ No valid symbols to scan")
-        return
-
+    symbols = get_symbols()
+    print(f"✅ OKX scanner started for {len(symbols)} symbols")
     scanner_loop(symbols)
 
 
-# ======================================================
-# HEALTH CHECK
-# ======================================================
-
 @app.route("/")
 def health():
-    return "Bot is running", 200
+    return "Bot running (OKX)", 200
 
-
-# ======================================================
-# ENTRY POINT
-# ======================================================
 
 if __name__ == "__main__":
-    threading.Thread(
-        target=start_scanner,
-        daemon=True
-    ).start()
-
+    threading.Thread(target=start_scanner, daemon=True).start()
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
