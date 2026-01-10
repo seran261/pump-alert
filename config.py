@@ -1,7 +1,11 @@
 # =========================
-# TIMEFRAMES
+# MARKET MODE
 # =========================
+MARKET_TYPE = "FUTURES"   # FUTURES or SPOT
 
+# =========================
+# TIMEFRAMES (OKX)
+# =========================
 LOWER_TF = "4H"
 HIGHER_TF = "1D"
 
@@ -10,33 +14,28 @@ SCAN_INTERVAL = 60
 # =========================
 # BTC DOMINANCE FILTER
 # =========================
-
 BTC_DOMINANCE_MAX = 52.0
 ALLOW_BTC_ALWAYS = True
 
 # =========================
 # TREND
 # =========================
-
 MA_PERIOD = 50
 
 # =========================
 # VOLUME
 # =========================
-
 VOLUME_LOOKBACK = 20
 VOLUME_MULTIPLIER = 1.5
 
 # =========================
 # BREAKOUT
 # =========================
-
 BREAKOUT_LOOKBACK = 20
 
 # =========================
-# ATR
+# ATR / RISK
 # =========================
-
 ATR_PERIOD = 14
 ATR_SL_MULTIPLIER = 1.5
 
@@ -47,7 +46,6 @@ TP3_ATR = 3.0
 # =========================
 # CONFIDENCE
 # =========================
-
 WEIGHT_TREND_LTF = 25
 WEIGHT_TREND_HTF = 30
 WEIGHT_VOLUME = 15
