@@ -1,9 +1,9 @@
 import time
 import requests
 import pandas as pd
-from strategy import generate_signal, calculate_atr_sl_tp
+from strategy import generate_signal, calculate_multi_tp
 from telegram import send_signal
-from config import TIMEFRAMES, SCAN_INTERVAL
+from config import LOWER_TF, HIGHER_TF, SCAN_INTERVAL
 
 BINANCE_URL = "https://api.binance.com/api/v3/klines"
 LAST_SIGNAL = {}
@@ -24,55 +24,49 @@ def fetch_klines(symbol, tf, limit=200):
         "_","_","_","_","_","_"
     ])
 
-    for col in ["open","high","low","close","volume"]:
-        df[col] = df[col].astype(float)
+    for c in ["open","high","low","close","volume"]:
+        df[c] = df[c].astype(float)
 
     return df
 
 def scan_symbol(symbol):
-    for tf in TIMEFRAMES:
-        df = fetch_klines(symbol, tf)
-        if df is None or df.empty:
-            return
+    df_ltf = fetch_klines(symbol, LOWER_TF)
+    df_htf = fetch_klines(symbol, HIGHER_TF)
 
-        signal = generate_signal(df)
-        if not signal:
-            return
+    if df_ltf is None or df_htf is None:
+        return
 
-        key = (symbol, tf)
-        if LAST_SIGNAL.get(key) == signal["side"]:
-            return
+    signal = generate_signal(df_ltf, df_htf)
+    if not signal:
+        return
 
-        LAST_SIGNAL[key] = signal["side"]
+    key = (symbol, signal["side"])
+    if LAST_SIGNAL.get(key):
+        return
 
-        entry = df["close"].iloc[-1]
-        tp, sl = calculate_atr_sl_tp(
-            entry,
-            signal["atr"],
-            signal["side"]
-        )
+    LAST_SIGNAL[key] = True
 
-        print(
-            f"🚀 SIGNAL {symbol} {signal['side']} "
-            f"TP:{tp} SL:{sl} CONF:{signal['confidence']}"
-        )
+    entry = df_ltf["close"].iloc[-1]
+    levels = calculate_multi_tp(entry, signal["atr"], signal["side"])
 
-        send_signal(
-            symbol=symbol,
-            tf=tf,
-            side=signal["side"],
-            entry=entry,
-            tp=tp,
-            sl=sl,
-            confidence=signal["confidence"]
-        )
+    send_signal(
+        symbol=symbol,
+        tf=f"{LOWER_TF} → {HIGHER_TF}",
+        side=signal["side"],
+        entry=entry,
+        sl=levels["sl"],
+        tp1=levels["tp1"],
+        tp2=levels["tp2"],
+        tp3=levels["tp3"],
+        confidence=signal["confidence"]
+    )
 
 def scanner_loop(symbols):
     while True:
         print("⏱ Scanner heartbeat...")
-        for symbol in symbols:
+        for s in symbols:
             try:
-                scan_symbol(symbol)
+                scan_symbol(s)
             except Exception as e:
-                print(f"❌ {symbol}: {e}")
+                print(f"❌ {s}: {e}")
         time.sleep(SCAN_INTERVAL)
