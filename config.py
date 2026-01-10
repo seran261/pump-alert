@@ -1,45 +1,52 @@
 # =========================
-# GLOBAL SETTINGS
+# TIMEFRAMES
 # =========================
 
-TIMEFRAMES = ["1d"]
+LOWER_TF = "4h"
+HIGHER_TF = "1d"
+
 SCAN_INTERVAL = 60
 SYMBOL_LIMIT = 200
 
 # =========================
-# TREND SETTINGS
+# TREND
 # =========================
 
 MA_PERIOD = 50
 
 # =========================
-# VOLUME SETTINGS
+# VOLUME
 # =========================
 
 VOLUME_LOOKBACK = 20
 VOLUME_MULTIPLIER = 1.5
 
 # =========================
-# BREAKOUT SETTINGS
+# BREAKOUT
 # =========================
 
 BREAKOUT_LOOKBACK = 20
 
 # =========================
-# ATR SETTINGS
+# ATR
 # =========================
 
 ATR_PERIOD = 14
 ATR_SL_MULTIPLIER = 1.5
-ATR_TP_MULTIPLIER = 3.0
+
+# MULTI-TP LADDER (ATR MULTIPLIERS)
+TP1_ATR = 1.0
+TP2_ATR = 2.0
+TP3_ATR = 3.0
 
 # =========================
 # CONFIDENCE SCORE
 # =========================
 
-WEIGHT_TREND = 40
-WEIGHT_VOLUME = 25
-WEIGHT_BREAKOUT = 25
+WEIGHT_TREND_LTF = 25
+WEIGHT_TREND_HTF = 30
+WEIGHT_VOLUME = 15
+WEIGHT_BREAKOUT = 20
 WEIGHT_ATR = 10
 
 MIN_CONFIDENCE_SCORE = 60
