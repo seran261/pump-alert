@@ -7,72 +7,67 @@ from scanner import scanner_loop
 app = Flask(__name__)
 
 # ======================================================
-# SUPPORTED BASE ASSETS (BINANCE USDT WILL BE USED)
+# SUPPORTED BASE ASSETS (BINANCE USDT PAIRS ONLY)
 # ======================================================
 
 SUPPORTED_ASSETS = {
-    # Major L1 / L0
-    "BTC", "ETH", "USDT", "XRP", "BNB", "SOL", "USDC", "ADA", "DOGE", "MATIC",
-    "TRX", "AVAX", "LINK", "LTC", "XLM", "TON", "APT", "ATOM", "VET", "ICP",
-    "HBAR", "NEAR", "FTM", "ARB", "OP", "SUI", "ALGO", "EOS", "XTZ", "BCH",
-    "XRD", "KCS", "CRO", "MKR", "BSV", "BIT", "ZEC", "SHIB", "RNDR", "IMX",
-    "GALA", "HNT", "FLOW", "BLAST", "AR", "STX", "AXS", "TIA", "MNT",
-    "DYDX", "INJ", "KAS", "GRT", "DASH", "NEXO", "SUSHI", "CHZ", "CELO",
-    "GT", "AURORA", "CAKE", "CVX", "AGIX", "SNX", "DCR", "OMG", "BTG",
-    "ONE", "BAL", "BAT", "SC", "BNT", "GNO", "QNT", "ICX", "HOT", "FET",
-    "XEM", "BAKE", "REEF", "XVG", "THETA", "AMP", "ARDR", "NANO", "ANKR",
-    "KSM", "WON", "RSR", "OXT", "EWT", "STORJ", "SNT"
+    # Majors & Alts
+    "BTC", "ETH", "XRP", "BNB", "SOL", "USDC", "ADA", "DOGE", "MATIC",
+    "TRX", "AVAX", "LINK", "LTC", "XLM", "TON", "APT", "ATOM", "VET",
+    "ICP", "HBAR", "NEAR", "FTM", "ARB", "OP", "SUI", "ALGO", "EOS",
+    "XTZ", "BCH", "XRD", "KCS", "CRO", "MKR", "BSV", "BIT", "ZEC",
+    "SHIB", "RNDR", "IMX", "GALA", "HNT", "FLOW", "BLAST", "AR",
+    "STX", "AXS", "TIA", "MNT", "DYDX", "INJ", "KAS", "GRT",
+    "DASH", "NEXO", "SUSHI", "CHZ", "CELO", "GT", "AURORA",
+    "CAKE", "CVX", "AGIX", "SNX", "DCR", "OMG", "BTG", "ONE",
+    "BAL", "BAT", "SC", "BNT", "GNO", "QNT", "ICX", "HOT",
+    "FET", "XEM", "BAKE", "REEF", "XVG", "THETA", "AMP",
+    "ARDR", "NANO", "ANKR", "KSM", "WON", "RSR", "OXT",
+    "EWT", "STORJ", "SNT"
 }
 
 # ======================================================
 # ASSET ALIASES / VARIANTS
-# (maps multiple names → single Binance base asset)
 # ======================================================
 
 ALIASES = {
-    "STETH": "ETH",      # Lido Staked ETH → ETH
-    "INT": None,         # Not on Binance
-    "EOSNEW": "EOS",     # EOS Network (New)
-    "APTOSWAP": "APT",   # Aptos variants
-    "TONN": "TON",       # Tokamak / Ton variants
-    "HELIUM": "HNT",     # Helium variants
-    "ARBNOVA": "ARB"     # Arbitrum Nova
+    "STETH": "ETH",        # Lido stETH → ETH
+    "APTOSWAP": "APT",     # Aptos variants
+    "EOSNEW": "EOS",       # EOS Network (New)
+    "ARBNOVA": "ARB",      # Arbitrum Nova
+    "HELIUM": "HNT"        # Helium variants
 }
 
 # ======================================================
-# LEVERAGED TOKENS TO EXCLUDE
+# BASE ASSETS TO NEVER SCAN
 # ======================================================
 
+BLOCKED_BASES = {
+    "USDT", "DAI", "BUSD", "TUSD", "USDP", "FDUSD"
+}
+
+# Leveraged token suffixes
 BANNED_SUFFIXES = ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")
 
 
-def normalize_asset(asset):
-    """
-    Normalize asset using alias table.
-    Returns None if asset should be ignored.
-    """
+def normalize_asset(asset: str):
     asset = asset.upper()
-
-    if asset in ALIASES:
-        return ALIASES[asset]
-
-    return asset
+    return ALIASES.get(asset, asset)
 
 
 def get_supported_symbols():
-    """
-    Build Binance USDT symbols from supported asset list.
-    Non-listed pairs will be skipped later by scanner safely.
-    """
     symbols = []
 
     for asset in SUPPORTED_ASSETS:
         base = normalize_asset(asset)
-        if not base:
+
+        # 🚫 Never scan stablecoin bases
+        if base in BLOCKED_BASES:
             continue
 
         symbol = f"{base}USDT"
 
+        # 🚫 Defensive check
         if symbol.endswith(BANNED_SUFFIXES):
             continue
 
