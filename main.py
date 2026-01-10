@@ -15,6 +15,12 @@ app = Flask(__name__)
 COINGECKO_URL = "https://api.coingecko.com/api/v3/coins/markets"
 BINANCE_EXCHANGE_URL = "https://api.binance.com/api/v3/exchangeInfo"
 
+# Stablecoins to EXCLUDE
+STABLECOINS = {
+    "USDT", "USDC", "BUSD", "DAI", "TUSD",
+    "USDP", "USDS", "FDUSD", "FRAX"
+}
+
 
 # =========================
 # ASYNC HELPERS
@@ -27,20 +33,19 @@ async def fetch_json(session, url, params=None):
 
 async def get_top_50_by_market_cap_async():
     """
-    1. Fetch TOP 50 coins by market cap from CoinGecko
-    2. Fetch Binance exchange symbols
-    3. Map CoinGecko coins → Binance USDT pairs
+    ✔ Fetch TOP 50 coins by market cap from CoinGecko
+    ✔ Exclude stablecoins
+    ✔ Map to Binance USDT pairs safely
     """
 
     async with aiohttp.ClientSession() as session:
-        # Run both API calls in parallel
         coingecko_task = fetch_json(
             session,
             COINGECKO_URL,
             {
                 "vs_currency": "usd",
                 "order": "market_cap_desc",
-                "per_page": 50,   # ✅ TOP 50 ONLY
+                "per_page": 100,  # fetch extra to allow filtering
                 "page": 1
             }
         )
@@ -52,16 +57,22 @@ async def get_top_50_by_market_cap_async():
             binance_task
         )
 
-    # Extract CoinGecko symbols (uppercase)
-    top_symbols = {coin["symbol"].upper() for coin in coingecko_data}
+    # 1️⃣ Extract VALID base assets from CoinGecko
+    valid_assets = []
+    for coin in coingecko_data:
+        symbol = coin["symbol"].upper()
 
-    # Exclude leveraged tokens
-    banned_suffixes = (
-        "UPUSDT",
-        "DOWNUSDT",
-        "BULLUSDT",
-        "BEARUSDT"
-    )
+        # ❌ skip stablecoins
+        if symbol in STABLECOINS:
+            continue
+
+        valid_assets.append(symbol)
+
+        if len(valid_assets) >= 50:
+            break
+
+    # 2️⃣ Map to Binance USDT pairs
+    banned_suffixes = ("UPUSDT", "DOWNUSDT", "BULLUSDT", "BEARUSDT")
 
     resolved_symbols = []
 
@@ -69,16 +80,13 @@ async def get_top_50_by_market_cap_async():
         symbol = s["symbol"]
         base_asset = s["baseAsset"]
 
-        # Only USDT pairs
         if not symbol.endswith("USDT"):
             continue
 
-        # Skip leveraged tokens
         if symbol.endswith(banned_suffixes):
             continue
 
-        # Match CoinGecko symbol with Binance base asset
-        if base_asset in top_symbols:
+        if base_asset in valid_assets:
             resolved_symbols.append(symbol)
 
     return resolved_symbols
@@ -91,7 +99,10 @@ async def get_top_50_by_market_cap_async():
 def start_scanner():
     symbols = asyncio.run(get_top_50_by_market_cap_async())
 
-    print(f"✅ Scanner started for {len(symbols)} symbols (Top 50 Market Cap • Async)")
+    print(
+        f"✅ Scanner started for {len(symbols)} symbols "
+        f"(Top 50 Market Cap • Stablecoins Removed)"
+    )
 
     if not symbols:
         print("❌ No symbols resolved — check CoinGecko / Binance mapping")
@@ -114,12 +125,10 @@ def health():
 # =========================
 
 if __name__ == "__main__":
-    # Start scanner in background thread
     threading.Thread(
         target=start_scanner,
         daemon=True
     ).start()
 
-    # Railway-required port binding
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
