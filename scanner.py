@@ -1,50 +1,53 @@
-import ccxt, pandas as pd
-from config import *
-from telegram import send
-from indicators import *
-from strategy import *
+# scanner.py
+import time
+import requests
+import pandas as pd
+from strategy import long_term_signal
+from telegram import send_signal
+from config import BINANCE_BASE_URL, TIMEFRAMES, SCAN_INTERVAL
 
-exchange = ccxt.binance({"enableRateLimit": True})
+LAST_SIGNAL = {}  # (symbol, timeframe) → direction
 
-def top_symbols():
-    t = exchange.fetch_tickers()
-    pairs = [
-        s for s in t
-        if s.endswith("/USDT") and t[s]["quoteVolume"]
-    ]
-    pairs.sort(key=lambda x: t[x]["quoteVolume"], reverse=True)
-    return pairs[:TOP_COINS]
+def fetch_klines(symbol, interval, limit=200):
+    url = f"{BINANCE_BASE_URL}/api/v3/klines"
+    params = {"symbol": symbol, "interval": interval, "limit": limit}
+    data = requests.get(url, params=params).json()
 
-def scan(symbol, tf, market):
-    data = exchange.fetch_ohlcv(symbol, tf, limit=150)
-    df = pd.DataFrame(data, columns=["t","open","high","low","close","volume"])
-    df["vwap"] = vwap(df)
-    delta = delta_ratio(df)
+    df = pd.DataFrame(data, columns=[
+        "time","open","high","low","close","volume",
+        "_","_","_","_","_","_"
+    ])
 
-    signal = None
+    df["close"] = df["close"].astype(float)
+    df["volume"] = df["volume"].astype(float)
+    return df
 
-    if tf in SCALP_TF and scalp_signal(df):
-        signal = "SCALP"
+def scan_symbol(symbol):
+    for tf in TIMEFRAMES:
+        df = fetch_klines(symbol, tf)
+        direction = long_term_signal(df)
+        if not direction:
+            continue
 
-    elif tf in INTRADAY_TF and intraday_signal(df):
-        signal = "INTRADAY"
+        key = (symbol, tf)
 
-    elif tf in LONG_TF and long_term_signal(df):
-        signal = "LONG TERM"
+        # 🚫 BLOCK opposite or duplicate signals
+        if key in LAST_SIGNAL and LAST_SIGNAL[key] == direction:
+            continue
 
-    if not signal:
-        return
+        LAST_SIGNAL[key] = direction
 
-    if market == "SPOT":
-        side = "BUY"
-    else:
-        side = "BUY" if delta > DELTA_BULL else "SELL"
+        price = df["close"].iloc[-1]
 
-    send(
-        f"📡 *{signal} SIGNAL*\n"
-        f"Market: `{market}`\n"
-        f"Symbol: `{symbol}`\n"
-        f"TF: `{tf}`\n"
-        f"Side: *{side}*\n"
-        f"Price: `{df.close.iloc[-1]}`"
-    )
+        # ✅ SAME direction used for SPOT & FUTURES
+        send_signal("SPOT", symbol, tf, direction, price)
+        send_signal("FUTURES", symbol, tf, direction, price)
+
+def scanner_loop(symbols):
+    while True:
+        for symbol in symbols:
+            try:
+                scan_symbol(symbol)
+            except Exception as e:
+                print(f"Error {symbol}: {e}")
+        time.sleep(SCAN_INTERVAL)
