@@ -14,10 +14,15 @@ def get_symbols():
         timeout=10
     ).json()
 
-    return [
-        d["symbol"] for d in data
-        if d["symbol"].endswith("USDT")
-    ][:SYMBOL_LIMIT]
+    banned = ("UP","DOWN","BULL","BEAR","USD","EUR","GBP")
+    symbols = []
+
+    for d in data:
+        s = d["symbol"]
+        if s.endswith("USDT") and not any(b in s for b in banned):
+            symbols.append(s)
+
+    return symbols[:SYMBOL_LIMIT]
 
 def start_scanner():
     symbols = get_symbols()
@@ -26,9 +31,8 @@ def start_scanner():
 
 @app.route("/")
 def health():
-    return "Bot is running", 200
+    return "Bot running", 200
 
 if __name__ == "__main__":
     threading.Thread(target=start_scanner, daemon=True).start()
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
