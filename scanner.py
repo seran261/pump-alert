@@ -1,20 +1,27 @@
 import time
-import requests
+import asyncio
+import aiohttp
 import pandas as pd
 from strategy import generate_signal, calculate_multi_tp
 from telegram import send_signal
 from config import LOWER_TF, HIGHER_TF, SCAN_INTERVAL
+from dominance import btc_dominance_ok
 
 BINANCE_URL = "https://api.binance.com/api/v3/klines"
 LAST_SIGNAL = {}
 
-def fetch_klines(symbol, tf, limit=200):
-    r = requests.get(
-        BINANCE_URL,
-        params={"symbol": symbol, "interval": tf, "limit": limit},
-        timeout=10
-    )
-    data = r.json()
+# -------------------------
+# ASYNC FETCH
+# -------------------------
+
+async def fetch_klines(session, symbol, tf, limit=200):
+    params = {
+        "symbol": symbol,
+        "interval": tf,
+        "limit": limit
+    }
+    async with session.get(BINANCE_URL, params=params, timeout=10) as resp:
+        data = await resp.json()
 
     if not isinstance(data, list) or len(data) < 60:
         return None
@@ -29,15 +36,24 @@ def fetch_klines(symbol, tf, limit=200):
 
     return df
 
-def scan_symbol(symbol):
-    df_ltf = fetch_klines(symbol, LOWER_TF)
-    df_htf = fetch_klines(symbol, HIGHER_TF)
+
+async def scan_symbol_async(session, symbol):
+    # Fetch LTF & HTF in parallel
+    df_ltf, df_htf = await asyncio.gather(
+        fetch_klines(session, symbol, LOWER_TF),
+        fetch_klines(session, symbol, HIGHER_TF)
+    )
 
     if df_ltf is None or df_htf is None:
         return
 
     signal = generate_signal(df_ltf, df_htf)
     if not signal:
+        return
+
+    # 🧠 BTC DOMINANCE FILTER
+    if not btc_dominance_ok(symbol, signal["side"]):
+        print(f"🧠 BTC dominance blocks {symbol}")
         return
 
     key = (symbol, signal["side"])
@@ -61,12 +77,15 @@ def scan_symbol(symbol):
         confidence=signal["confidence"]
     )
 
+
+async def scanner_async(symbols):
+    async with aiohttp.ClientSession() as session:
+        tasks = [scan_symbol_async(session, s) for s in symbols]
+        await asyncio.gather(*tasks)
+
+
 def scanner_loop(symbols):
     while True:
-        print("⏱ Scanner heartbeat...")
-        for s in symbols:
-            try:
-                scan_symbol(s)
-            except Exception as e:
-                print(f"❌ {s}: {e}")
+        print("⚡ Async scanner heartbeat...")
+        asyncio.run(scanner_async(symbols))
         time.sleep(SCAN_INTERVAL)
