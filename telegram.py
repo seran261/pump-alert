@@ -1,4 +1,3 @@
-# telegram.py
 import requests
 import os
 
@@ -18,9 +17,10 @@ def send_signal(symbol, tf, side, entry, tp, sl, confidence):
     )
 
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    r = requests.post(url, json={
-        "chat_id": CHAT_ID,
-        "text": msg
-    }, timeout=10)
+    r = requests.post(
+        url,
+        json={"chat_id": CHAT_ID, "text": msg},
+        timeout=10
+    )
 
     print("📨 Telegram:", r.text)
