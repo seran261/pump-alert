@@ -1,14 +1,13 @@
-# indicators.py
 import pandas as pd
 
 def moving_average(series, period):
     return series.rolling(period).mean()
 
 def true_range(df):
-    high_low = df["high"] - df["low"]
-    high_close = (df["high"] - df["close"].shift()).abs()
-    low_close = (df["low"] - df["close"].shift()).abs()
-    return pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    hl = df["high"] - df["low"]
+    hc = (df["high"] - df["close"].shift()).abs()
+    lc = (df["low"] - df["close"].shift()).abs()
+    return pd.concat([hl, hc, lc], axis=1).max(axis=1)
 
 def atr(df, period):
     tr = true_range(df)
