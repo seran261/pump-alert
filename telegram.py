@@ -4,15 +4,17 @@ import os
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_signal(symbol, tf, side, entry, tp, sl, confidence):
+def send_signal(symbol, tf, side, entry, sl, tp1, tp2, tp3, confidence):
     msg = (
         f"📡 SMART TRADE SIGNAL\n"
         f"Symbol: {symbol}\n"
         f"TF: {tf}\n"
         f"Side: {side}\n"
         f"Entry: {entry}\n"
-        f"🎯 TP (ATR): {tp}\n"
-        f"🛑 SL (ATR): {sl}\n"
+        f"🛑 SL: {sl}\n"
+        f"🎯 TP1: {tp1}\n"
+        f"🎯 TP2: {tp2}\n"
+        f"🎯 TP3: {tp3}\n"
         f"📊 Confidence: {confidence}/100"
     )
 
