@@ -2,29 +2,25 @@
 import requests
 import os
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-def send_signal(market, symbol, tf, side, entry, tp, sl):
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("❌ Telegram env vars missing")
-        return
-
+def send_signal(symbol, tf, side, entry, tp, sl, confidence):
     msg = (
-        f"📡 LONG TERM SIGNAL\n"
-        f"Market: {market}\n"
+        f"📡 SMART TRADE SIGNAL\n"
         f"Symbol: {symbol}\n"
         f"TF: {tf}\n"
         f"Side: {side}\n"
         f"Entry: {entry}\n"
-        f"🎯 Take Profit: {tp}\n"
-        f"🛑 Stop Loss: {sl}"
+        f"🎯 TP (ATR): {tp}\n"
+        f"🛑 SL (ATR): {sl}\n"
+        f"📊 Confidence: {confidence}/100"
     )
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     r = requests.post(url, json={
-        "chat_id": TELEGRAM_CHAT_ID,
+        "chat_id": CHAT_ID,
         "text": msg
     }, timeout=10)
 
-    print("📨 Telegram response:", r.text)
+    print("📨 Telegram:", r.text)
