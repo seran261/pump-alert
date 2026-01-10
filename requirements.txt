@@ -1,7 +1,5 @@
-ccxt
-pandas
-numpy
-requests
-ta
 flask
+requests
+pandas
 aiohttp
+gunicorn
