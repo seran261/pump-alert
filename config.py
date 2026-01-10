@@ -6,7 +6,7 @@ LOWER_TF = "4h"
 HIGHER_TF = "1d"
 
 SCAN_INTERVAL = 60
-SYMBOL_LIMIT = 200
+SYMBOL_LIMIT = 100
 
 # =========================
 # TREND
