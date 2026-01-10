@@ -4,44 +4,51 @@ import aiohttp
 import pandas as pd
 from strategy import generate_signal, calculate_multi_tp
 from telegram import send_signal
-from config import LOWER_TF, HIGHER_TF, SCAN_INTERVAL
 from dominance import btc_dominance_ok
+from config import LOWER_TF, HIGHER_TF, SCAN_INTERVAL
 
-BINANCE_URL = "https://api.binance.com/api/v3/klines"
+OKX_URL = "https://www.okx.com/api/v5/market/candles"
 LAST_SIGNAL = {}
 
 # -------------------------
-# ASYNC FETCH
+# OKX ASYNC FETCH
 # -------------------------
 
-async def fetch_klines(session, symbol, tf, limit=200):
+async def fetch_klines(session, inst_id, tf, limit=200):
     params = {
-        "symbol": symbol,
-        "interval": tf,
+        "instId": inst_id,
+        "bar": tf,
         "limit": limit
     }
-    async with session.get(BINANCE_URL, params=params, timeout=10) as resp:
+
+    async with session.get(OKX_URL, params=params, timeout=10) as resp:
         data = await resp.json()
 
-    if not isinstance(data, list) or len(data) < 60:
+    if "data" not in data or len(data["data"]) < 60:
         return None
 
-    df = pd.DataFrame(data, columns=[
-        "time","open","high","low","close","volume",
-        "_","_","_","_","_","_"
-    ])
+    df = pd.DataFrame(
+        data["data"],
+        columns=[
+            "ts", "open", "high", "low",
+            "close", "volume", "volCcy", "volCcyQuote", "confirm"
+        ]
+    )
 
-    for c in ["open","high","low","close","volume"]:
+    df = df.iloc[::-1]  # oldest → newest
+
+    for c in ["open", "high", "low", "close", "volume"]:
         df[c] = df[c].astype(float)
 
     return df
 
 
 async def scan_symbol_async(session, symbol):
-    # Fetch LTF & HTF in parallel
+    inst_id = symbol.replace("USDT", "-USDT")
+
     df_ltf, df_htf = await asyncio.gather(
-        fetch_klines(session, symbol, LOWER_TF),
-        fetch_klines(session, symbol, HIGHER_TF)
+        fetch_klines(session, inst_id, LOWER_TF),
+        fetch_klines(session, inst_id, HIGHER_TF)
     )
 
     if df_ltf is None or df_htf is None:
@@ -51,9 +58,7 @@ async def scan_symbol_async(session, symbol):
     if not signal:
         return
 
-    # 🧠 BTC DOMINANCE FILTER
     if not btc_dominance_ok(symbol, signal["side"]):
-        print(f"🧠 BTC dominance blocks {symbol}")
         return
 
     key = (symbol, signal["side"])
@@ -86,6 +91,6 @@ async def scanner_async(symbols):
 
 def scanner_loop(symbols):
     while True:
-        print("⚡ Async scanner heartbeat...")
+        print("⚡ OKX async scanner heartbeat...")
         asyncio.run(scanner_async(symbols))
         time.sleep(SCAN_INTERVAL)
