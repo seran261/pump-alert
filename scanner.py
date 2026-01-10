@@ -2,16 +2,20 @@
 import time
 import requests
 import pandas as pd
-from strategy import long_term_signal
+from strategy import generate_signal, calculate_tp_sl
 from telegram import send_signal
-from config import BINANCE_BASE_URL, TIMEFRAMES, SCAN_INTERVAL
+from config import TIMEFRAMES, SCAN_INTERVAL
 
-LAST_SIGNAL = {}  # (symbol, timeframe) → direction
+BINANCE_URL = "https://api.binance.com/api/v3/klines"
+LAST_SIGNAL = {}  # (symbol, tf) -> BUY/SELL
 
-def fetch_klines(symbol, interval, limit=200):
-    url = f"{BINANCE_BASE_URL}/api/v3/klines"
-    params = {"symbol": symbol, "interval": interval, "limit": limit}
-    data = requests.get(url, params=params).json()
+def fetch_klines(symbol, tf, limit=200):
+    r = requests.get(
+        BINANCE_URL,
+        params={"symbol": symbol, "interval": tf, "limit": limit},
+        timeout=10
+    )
+    data = r.json()
 
     df = pd.DataFrame(data, columns=[
         "time","open","high","low","close","volume",
@@ -24,30 +28,33 @@ def fetch_klines(symbol, interval, limit=200):
 
 def scan_symbol(symbol):
     for tf in TIMEFRAMES:
+        print(f"🔍 Checking {symbol} {tf}")
         df = fetch_klines(symbol, tf)
-        direction = long_term_signal(df)
+
+        direction = generate_signal(df)
         if not direction:
-            continue
+            return
 
         key = (symbol, tf)
-
-        # 🚫 BLOCK opposite or duplicate signals
-        if key in LAST_SIGNAL and LAST_SIGNAL[key] == direction:
-            continue
+        if LAST_SIGNAL.get(key) == direction:
+            return
 
         LAST_SIGNAL[key] = direction
 
-        price = df["close"].iloc[-1]
+        entry = df["close"].iloc[-1]
+        tp, sl = calculate_tp_sl(entry, direction)
 
-        # ✅ SAME direction used for SPOT & FUTURES
-        send_signal("SPOT", symbol, tf, direction, price)
-        send_signal("FUTURES", symbol, tf, direction, price)
+        print(f"🚀 SIGNAL {symbol} {direction} TP:{tp} SL:{sl}")
+
+        send_signal("SPOT", symbol, tf, direction, entry, tp, sl)
+        send_signal("FUTURES", symbol, tf, direction, entry, tp, sl)
 
 def scanner_loop(symbols):
     while True:
+        print("⏱ Scanner heartbeat...")
         for symbol in symbols:
             try:
                 scan_symbol(symbol)
             except Exception as e:
-                print(f"Error {symbol}: {e}")
+                print(f"❌ {symbol} error: {e}")
         time.sleep(SCAN_INTERVAL)
