@@ -2,8 +2,8 @@
 # TIMEFRAMES
 # =========================
 
-LOWER_TF = "4h"
-HIGHER_TF = "1d"
+LOWER_TF = "4H"
+HIGHER_TF = "1D"
 
 SCAN_INTERVAL = 60
 
@@ -11,7 +11,7 @@ SCAN_INTERVAL = 60
 # BTC DOMINANCE FILTER
 # =========================
 
-BTC_DOMINANCE_MAX = 52.0   # % → block alt BUY above this
+BTC_DOMINANCE_MAX = 52.0
 ALLOW_BTC_ALWAYS = True
 
 # =========================
