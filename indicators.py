@@ -10,8 +10,7 @@ def true_range(df):
     return pd.concat([hl, hc, lc], axis=1).max(axis=1)
 
 def atr(df, period):
-    tr = true_range(df)
-    return tr.rolling(period).mean()
+    return true_range(df).rolling(period).mean()
 
 def volume_spike(volume, lookback, multiplier):
     avg = volume.rolling(lookback).mean()
