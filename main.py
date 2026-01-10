@@ -9,30 +9,62 @@ from config import SYMBOL_LIMIT
 app = Flask(__name__)
 
 def get_symbols():
-    data = requests.get(
-        "https://api.binance.com/api/v3/ticker/24hr",
-        timeout=10
-    ).json()
+    """
+    Fetch top USDT symbols from Binance
+    and exclude ONLY leveraged tokens.
+    """
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    data = requests.get(url, timeout=10).json()
 
-    banned = ("UP","DOWN","BULL","BEAR","USD","EUR","GBP")
+    # 🚫 Exclude leveraged tokens ONLY
+    banned_suffixes = (
+        "UPUSDT",
+        "DOWNUSDT",
+        "BULLUSDT",
+        "BEARUSDT"
+    )
+
     symbols = []
-
     for d in data:
-        s = d["symbol"]
-        if s.endswith("USDT") and not any(b in s for b in banned):
-            symbols.append(s)
+        symbol = d.get("symbol")
+
+        if not symbol:
+            continue
+
+        # ✅ Only USDT pairs
+        if not symbol.endswith("USDT"):
+            continue
+
+        # 🚫 Skip leveraged tokens
+        if symbol.endswith(banned_suffixes):
+            continue
+
+        symbols.append(symbol)
 
     return symbols[:SYMBOL_LIMIT]
 
 def start_scanner():
     symbols = get_symbols()
+
     print(f"✅ Scanner started for {len(symbols)} symbols")
+
+    if not symbols:
+        print("❌ No symbols found — check filter logic")
+        return
+
     scanner_loop(symbols)
 
 @app.route("/")
 def health():
-    return "Bot running", 200
+    return "Bot is running", 200
 
 if __name__ == "__main__":
-    threading.Thread(target=start_scanner, daemon=True).start()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    # Start scanner in background thread
+    threading.Thread(
+        target=start_scanner,
+        daemon=True
+    ).start()
+
+    # Railway-required port binding
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
