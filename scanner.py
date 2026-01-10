@@ -1,4 +1,3 @@
-# scanner.py
 import time
 import requests
 import pandas as pd
@@ -10,11 +9,11 @@ BINANCE_URL = "https://api.binance.com/api/v3/klines"
 LAST_SIGNAL = {}
 
 def fetch_klines(symbol, tf, limit=200):
-    r = requests.get(BINANCE_URL, params={
-        "symbol": symbol,
-        "interval": tf,
-        "limit": limit
-    }, timeout=10)
+    r = requests.get(
+        BINANCE_URL,
+        params={"symbol": symbol, "interval": tf, "limit": limit},
+        timeout=10
+    )
     data = r.json()
 
     if not isinstance(data, list) or len(data) < 60:
@@ -33,7 +32,7 @@ def fetch_klines(symbol, tf, limit=200):
 def scan_symbol(symbol):
     for tf in TIMEFRAMES:
         df = fetch_klines(symbol, tf)
-        if df is None:
+        if df is None or df.empty:
             return
 
         signal = generate_signal(df)
@@ -47,7 +46,16 @@ def scan_symbol(symbol):
         LAST_SIGNAL[key] = signal["side"]
 
         entry = df["close"].iloc[-1]
-        tp, sl = calculate_atr_sl_tp(entry, signal["atr"], signal["side"])
+        tp, sl = calculate_atr_sl_tp(
+            entry,
+            signal["atr"],
+            signal["side"]
+        )
+
+        print(
+            f"🚀 SIGNAL {symbol} {signal['side']} "
+            f"TP:{tp} SL:{sl} CONF:{signal['confidence']}"
+        )
 
         send_signal(
             symbol=symbol,
