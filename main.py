@@ -1,17 +1,17 @@
-import time
-from scanner import top_symbols, scan
-from config import *
+# main.py
+from scanner import scanner_loop
+import requests
 
-print("🚀 Crypto Signal Bot Started")
+def get_top_symbols(limit=200):
+    url = "https://api.binance.com/api/v3/ticker/24hr"
+    data = requests.get(url).json()
 
-symbols = top_symbols()
+    usdt_pairs = [
+        d["symbol"] for d in data
+        if d["symbol"].endswith("USDT")
+    ]
+    return usdt_pairs[:limit]
 
-while True:
-    for s in symbols:
-        for tf in SCALP_TF + INTRADAY_TF + LONG_TF:
-            try:
-                scan(s, tf, "SPOT")
-                scan(s, tf, "FUTURES")
-            except:
-                pass
-    time.sleep(SCAN_INTERVAL)
+if __name__ == "__main__":
+    symbols = get_top_symbols()
+    scanner_loop(symbols)
