@@ -6,7 +6,13 @@ LOWER_TF = "4h"
 HIGHER_TF = "1d"
 
 SCAN_INTERVAL = 60
-SYMBOL_LIMIT = 100
+
+# =========================
+# BTC DOMINANCE FILTER
+# =========================
+
+BTC_DOMINANCE_MAX = 52.0   # % → block alt BUY above this
+ALLOW_BTC_ALWAYS = True
 
 # =========================
 # TREND
@@ -34,13 +40,12 @@ BREAKOUT_LOOKBACK = 20
 ATR_PERIOD = 14
 ATR_SL_MULTIPLIER = 1.5
 
-# MULTI-TP LADDER (ATR MULTIPLIERS)
 TP1_ATR = 1.0
 TP2_ATR = 2.0
 TP3_ATR = 3.0
 
 # =========================
-# CONFIDENCE SCORE
+# CONFIDENCE
 # =========================
 
 WEIGHT_TREND_LTF = 25
