@@ -1,4 +1,3 @@
-# strategy.py
 from indicators import (
     moving_average,
     volume_spike,
@@ -11,8 +10,10 @@ from config import *
 def detect_trend(df):
     if len(df) < MA_PERIOD:
         return None
+
     price = df["close"].iloc[-1]
     ma = moving_average(df["close"], MA_PERIOD).iloc[-1]
+
     if price > ma:
         return "BUY"
     elif price < ma:
@@ -26,6 +27,7 @@ def calculate_atr_sl_tp(price, atr_value, side):
     else:
         sl = price + atr_value * ATR_SL_MULTIPLIER
         tp = price - atr_value * ATR_TP_MULTIPLIER
+
     return round(tp, 6), round(sl, 6)
 
 def signal_confidence(trend, vol_ok, breakout_ok, atr_ok):
@@ -41,14 +43,25 @@ def signal_confidence(trend, vol_ok, breakout_ok, atr_ok):
     return score
 
 def generate_signal(df):
-    if len(df) < max(MA_PERIOD, ATR_PERIOD, BREAKOUT_LOOKBACK):
+    min_len = max(
+        MA_PERIOD,
+        ATR_PERIOD,
+        BREAKOUT_LOOKBACK,
+        VOLUME_LOOKBACK
+    )
+
+    if len(df) < min_len:
         return None
 
     trend = detect_trend(df)
     if not trend:
         return None
 
-    vol_ok = volume_spike(df["volume"], VOLUME_LOOKBACK, VOLUME_MULTIPLIER)
+    vol_ok = volume_spike(
+        df["volume"],
+        VOLUME_LOOKBACK,
+        VOLUME_MULTIPLIER
+    )
 
     breakout_ok = (
         breakout_high(df, BREAKOUT_LOOKBACK)
@@ -56,20 +69,30 @@ def generate_signal(df):
         else breakout_low(df, BREAKOUT_LOOKBACK)
     )
 
-    # 🔑 Volume OR Breakout logic
+    # 🔑 Volume OR Breakout
     if not (vol_ok or breakout_ok):
         return None
 
-    atr_val = atr(df, ATR_PERIOD).iloc[-1]
-    atr_ok = atr_val > atr(df, ATR_PERIOD).mean().iloc[-1]
+    atr_series = atr(df, ATR_PERIOD)
+    if atr_series.isna().all():
+        return None
 
-    confidence = signal_confidence(trend, vol_ok, breakout_ok, atr_ok)
+    atr_current = atr_series.iloc[-1]
+    atr_avg = atr_series.mean()
+    atr_ok = atr_current > atr_avg
+
+    confidence = signal_confidence(
+        trend,
+        vol_ok,
+        breakout_ok,
+        atr_ok
+    )
 
     if confidence < MIN_CONFIDENCE_SCORE:
         return None
 
     return {
         "side": trend,
-        "confidence": confidence,
-        "atr": atr_val
+        "atr": atr_current,
+        "confidence": confidence
     }
