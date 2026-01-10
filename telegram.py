@@ -13,8 +13,8 @@ def send_signal(market, symbol, tf, side, price):
     )
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": msg
-    }
-    requests.post(url, json=payload)
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg}
+
+    r = requests.post(url, json=payload)
+
+    print("📨 Telegram response:", r.text)
