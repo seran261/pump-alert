@@ -4,3 +4,4 @@ numpy
 requests
 ta
 flask
+aiohttp
