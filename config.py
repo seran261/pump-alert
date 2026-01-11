@@ -1,13 +1,13 @@
 # =========================
 # MARKET MODE
 # =========================
-MARKET_TYPE = "FUTURES"   # FUTURES or SPOT
+MARKET_TYPE = "FUTURES"   # BYBIT USDT Perpetuals
 
 # =========================
-# TIMEFRAMES (OKX)
+# TIMEFRAMES (BYBIT)
 # =========================
-LOWER_TF = "4H"
-HIGHER_TF = "1D"
+LOWER_TF = "240"   # 4H in minutes
+HIGHER_TF = "D"    # 1D
 
 SCAN_INTERVAL = 60
 
@@ -52,4 +52,4 @@ WEIGHT_VOLUME = 15
 WEIGHT_BREAKOUT = 20
 WEIGHT_ATR = 10
 
-MIN_CONFIDENCE_SCORE = 60
+MIN_CONFIDENCE_SCORE = 45   # relaxed for futures
