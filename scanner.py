@@ -5,35 +5,32 @@ import pandas as pd
 from strategy import generate_signal, calculate_multi_tp
 from telegram import send_signal
 from dominance import btc_dominance_ok
-from config import LOWER_TF, HIGHER_TF, SCAN_INTERVAL, MARKET_TYPE
+from config import LOWER_TF, HIGHER_TF, SCAN_INTERVAL
 
-OKX_URL = "https://www.okx.com/api/v5/market/candles"
+BYBIT_KLINE_URL = "https://api.bybit.com/v5/market/kline"
 LAST_SIGNAL = {}
 
-def okx_inst_id(symbol):
-    """
-    BTCUSDT → BTC-USDT-SWAP (FUTURES)
-    BTCUSDT → BTC-USDT (SPOT)
-    """
-    base = symbol.replace("USDT", "")
-    return f"{base}-USDT-SWAP" if MARKET_TYPE == "FUTURES" else f"{base}-USDT"
+async def fetch_klines(session, symbol, interval, limit=200):
+    params = {
+        "category": "linear",
+        "symbol": symbol,
+        "interval": interval,
+        "limit": limit
+    }
 
+    async with session.get(BYBIT_KLINE_URL, params=params, timeout=10) as r:
+        j = await r.json()
 
-async def fetch_klines(session, inst_id, tf, limit=200):
-    params = {"instId": inst_id, "bar": tf, "limit": limit}
+    if j.get("retCode") != 0 or not j["result"]["list"]:
+        return None
 
-    async with session.get(OKX_URL, params=params, timeout=10) as resp:
-        data = await resp.json()
-
-    if "data" not in data or len(data["data"]) < 60:
+    data = j["result"]["list"]
+    if len(data) < 60:
         return None
 
     df = pd.DataFrame(
-        data["data"],
-        columns=[
-            "ts","open","high","low",
-            "close","volume","volCcy","volQuote","confirm"
-        ]
+        data,
+        columns=["ts","open","high","low","close","volume","turnover"]
     )
 
     df = df.iloc[::-1]
@@ -45,11 +42,9 @@ async def fetch_klines(session, inst_id, tf, limit=200):
 
 
 async def scan_symbol_async(session, symbol):
-    inst = okx_inst_id(symbol)
-
     df_ltf, df_htf = await asyncio.gather(
-        fetch_klines(session, inst, LOWER_TF),
-        fetch_klines(session, inst, HIGHER_TF)
+        fetch_klines(session, symbol, LOWER_TF),
+        fetch_klines(session, symbol, HIGHER_TF)
     )
 
     if df_ltf is None or df_htf is None:
@@ -72,7 +67,7 @@ async def scan_symbol_async(session, symbol):
     levels = calculate_multi_tp(entry, signal["atr"], signal["side"])
 
     send_signal(
-        symbol=inst,
+        symbol=symbol,
         tf=f"{LOWER_TF} → {HIGHER_TF}",
         side=signal["side"],
         entry=entry,
@@ -86,12 +81,13 @@ async def scan_symbol_async(session, symbol):
 
 async def scanner_async(symbols):
     async with aiohttp.ClientSession() as session:
-        tasks = [scan_symbol_async(session, s) for s in symbols]
-        await asyncio.gather(*tasks)
+        await asyncio.gather(
+            *(scan_symbol_async(session, s) for s in symbols)
+        )
 
 
 def scanner_loop(symbols):
     while True:
-        print("⚡ OKX FUTURES scanner heartbeat...")
+        print("⚡ BYBIT FUTURES TOP-100 scanner heartbeat...")
         asyncio.run(scanner_async(symbols))
         time.sleep(SCAN_INTERVAL)
