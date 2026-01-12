@@ -6,7 +6,7 @@ MARKET_TYPE = "FUTURES"   # BYBIT USDT Perpetuals
 # =========================
 # TIMEFRAMES (BYBIT)
 # =========================
-LOWER_TF = "240"   # 4H in minutes
+LOWER_TF = "60"   # 1H in minutes
 HIGHER_TF = "D"    # 1D
 
 SCAN_INTERVAL = 60
